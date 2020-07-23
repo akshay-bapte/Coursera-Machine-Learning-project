@@ -1,0 +1,183 @@
+---
+title: 'Coursera Machine Learning: Course Project'
+author: "Akshay Bapte"
+date: "20/07/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This project is part of the course __Practical Machine Learning__, of Data Specialization with R, from Johns Hopkins University.
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+
+The goal of this project is to predict the manner in which they did the exercise. We will use our prediction model to predict 20 different test cases.
+
+## Data
+
+The training data for this project are available here:
+
+[Training data](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv)
+
+The test data are available here:
+
+[Test data](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv)
+
+## Loading the data
+
+```{r Loading packages, message=FALSE, warning=FALSE}
+library(caret)
+library(rattle)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(randomForest)
+```
+
+```{r Loading the data }
+train <- read.csv("pml-training.csv", header = TRUE)
+test <- read.csv("pml-testing.csv", header = TRUE)
+dim(train)
+dim(test)
+```
+The training data contains 19622 observations from 160 variables and the test data contains 20 observations from 160 variables.
+
+## Cleaning the data
+
+Firstly, we will try to clean the data by removing __NA__ values from both the data.
+```{r}
+train_clean <- train[, colSums(is.na(train)) == 0] # removing NAs
+test_clean <- test[, colSums(is.na(test)) == 0]
+dim(train_clean)
+dim(test_clean)
+```
+```{r}
+names(train_clean)
+```
+
+Having a quick look at the train_clean data shows us that the first 7 variables:
+__"X"__, __"user_name"__, __"raw_timestamp_part_1"__,    __"raw_timestamp_part_2"__, __"cvtd_timestamp"__, __"new_window"__, and          __"num_window"__ cannot be used as the predictors in our prediction models, so we will remove this variables from our data.
+
+```{r}
+train_clean <- train_clean[, -c(1:7)]
+test_clean <- test_clean[, -c(1:7)]
+dim(test_clean)
+dim(train_clean)
+```
+
+## Partitioning the data
+
+We will now partition our cleaned train data ( __train_clean__ ) into 70% __train_data__ and 30% __test_data__. This partitioning will allow us to test our predictions before testing it on the raw  test data provided to us.
+
+```{r}
+set.seed(1254)
+inTrain <- createDataPartition(train_clean$classe, p = 0.7, list = FALSE)
+train_data <- train_clean[inTrain, ]
+test_data <- train_clean[-inTrain, ]
+dim(train_data)
+dim(test_data)
+```
+
+## Removing variables with Near Zero variance
+
+We will further clean the data by removing the variables that have Near Zero Variance.
+
+```{r}
+NZV <- nearZeroVar(train_data)
+train_data <- train_data[, -NZV]
+test_data <- test_data[, -NZV]
+dim(train_data)
+dim(test_data)
+```
+
+## Building a model
+
+We will try to fit __classification tree__ and __randomForest__ models on our train_data with classe variable.
+
+### 1. Classification tree using rpart 
+```{r}
+fit1 <- train(classe~., train_data, method = "rpart")
+fancyRpartPlot(fit1$finalModel)
+```
+
+### 2. Random forest
+```{r}
+controlRF <- trainControl(method="cv", number=3, verboseIter=FALSE)
+fit2 <- train(classe~., test_data, method = "rf", trControl = controlRF)
+plot(fit2)
+```
+
+## Evaluating the models(Out of sample error)
+
+We will use the both the __fit1__ and __fit2__ models on our __test_data__ using predict and confusionMatrix used to calculate the accuracy of the prediction.
+
+```{r}
+predict1 <- predict(fit1, test_data)
+confusion1 <- confusionMatrix(predict1, as.factor(test_data$classe))
+confusion1
+```
+
+The accuracy of the model fit1 is __0.5551__  and out of sample error is         __0.45__*.
+```{r}
+predict2 <- predict(fit2, newdata = test_data)
+cm2 <- confusionMatrix(predict2, as.factor(test_data$classe))
+cm2
+```
+The accuracy of the model fit2 is __1__ and out of sample error is __almost 0__*. 
+The high accuracy of the model might be due to __overfitting__.
+
+## Applying the best model
+
+Comparing the accuracy data of both the models, the model __fit2__ which we trained using __randomForest__ algorithm has the highest accuracy. So we will use this fit2 model on the raw test data given to us.
+
+```{r}
+predictor <- predict(fit2, newdata = test)
+final_submission <- data.frame(test$problem_id, predictor)
+final_submission
+```
+
+We will use this predictors to answer the questions from the Course quiz.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
